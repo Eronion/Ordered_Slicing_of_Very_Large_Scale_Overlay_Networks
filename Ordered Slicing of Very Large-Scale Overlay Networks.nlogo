@@ -107,10 +107,10 @@ to setup-common-variables
     let i 1
     let dim-view c
     repeat dim-view [
-    table:put view (word "proprietà" i) -55
-    table:put view (word "num-random" i) -55
-    table:put view (word "timestamp" i) -55
-    table:put view (word "adress" i) -55
+    table:put view (word "proprietà" i) 0
+    table:put view (word "num-random" i) 0
+    table:put view (word "timestamp" i) 0
+    table:put view (word "adress" i) 0
     set i i + 1
   ]
 
@@ -192,9 +192,9 @@ to gossip-actively ;;turtle procedure
 end
 
 to gossip-passively [destinatario] ;;turtle procedure
-  print(word "gossip passivo chiamatao da: " destinatario)
-  update-history-passive (destinatario)
+  print(word "sono " myself " gossip passivo chiamatao da: " destinatario)
   act-passive (destinatario)
+  update-history-passive (destinatario)
   increment-gossip-passivi
 end
 
@@ -218,6 +218,7 @@ to act-active
   print("-------------------ACT ACTIVE------------------------")
   print(word "SONO LA TURTLE num :" who)
 
+  ;;Costruisco un buffer in cui metto la mia view più le mie proprietà
   let buffer table:make
   set buffer view
   table:put buffer "proprietà0" proprietà
@@ -229,128 +230,34 @@ to act-active
   ask partner [set messaggio-buffer [buffer] of myself]
 
   ;;Faccio rispondere al partner passivamente
-  ;print(word "sono me " who)
   print(word "Chiamata passiva da " who "verso" partner)
   ask partner [ gossip-passively (myself) ]
   print(word "buffer passivo ricevuto  da " who " :" messaggio-buffer)
 
   ;;QUI ORDINO LA VIEW CON FRESHEST C ENTRIES
-
-  let i 0
-  let timestamps []
-  let max-timestamps []
-  print(word "sono " who)
-  print(word "active views prima di timestamp:" view)
-  print(word "active buffer prima di timestamp:" messaggio-buffer)
-  repeat c + 1 [
-    set timestamps (insert-item i timestamps (table:get-or-default messaggio-buffer (word "timestamp" i) -55) )
-    print(word "item mess buff: " (table:get-or-default messaggio-buffer (word "timestamp" i) -55))
-    if i > 0 [set timestamps (insert-item i timestamps (table:get-or-default view (word "timestamp" i) -55) )]
-    print(word "item mess buff: " (table:get-or-default view (word "timestamp" i) -55))
-    set i i + 1
-    ]
-  print(word "active primestam prima di sort:" timestamps)
-  set timestamps (sort timestamps)
-  print(word "active primesta dopo di sort:" timestamps)
-
-  set i (((table:length view) / 4) - 1)
-  repeat (((table:length view) / 4)) [
-    print(word "gen" i)
-    if (item i timestamps != -55)[
-    print(word "iterazione" i "-1")
-    set max-timestamps (insert-item 0 max-timestamps (item i timestamps) )
-    ]
-    if (item i timestamps = -55)[
-      print(word "iterazione" i "-1")
-      set max-timestamps (insert-item 0 max-timestamps -88 )
-    ]
-    set i i - 1
-    ]
-  print(word "max timestamp:" max-timestamps)
-
-  print(word "sono: " who "e le lunghezze di view e buffer sono")
-  print(table:length view)
-  print(table:length messaggio-buffer)
-
-
-  set i 0
-  let z 0
-  let y 0
-  let view-temp table:make
-  repeat c   [
-    set z 0
-    repeat c  [
-      print(word "i= " i)
-      print(word "z= " z)
-      print(word "y= " y)
-      if y < c  [
-        if ((table:get messaggio-buffer (word "timestamp" i)) = (item z max-timestamps))[
-          print(word "pass-1: " (table:get-or-default messaggio-buffer (word "proprietà" i) -98))
-          print(word "id= " i)
-          print(word "zd= " z)
-          print(word "zd= " y)
-          table:put view-temp (word "proprietà" y) (table:get-or-default messaggio-buffer (word "proprietà" i) -98)
-          table:put view-temp (word "num-random" y) (table:get-or-default messaggio-buffer (word "num-random" i) -98)
-          table:put view-temp (word "timestamp" y) (table:get-or-default messaggio-buffer (word "timestamp" i) -98)
-          table:put view-temp (word "adress" y) (table:get-or-default messaggio-buffer (word "adress" i) -98)
-          set y y + 1
-        ]
-        if ((table:get view (word "timestamp" i)) = (item z max-timestamps))[
-           if i > 0 [
-          print(word "pass-2: " (table:get-or-default view (word "proprietà" i) -98))
-             print(word "id= " i)
-          print(word "zd= " z)
-          print(word "zd= " y)
-
-          table:put view-temp (word "proprietà" y) (table:get-or-default view (word "proprietà" i) -98)
-          table:put view-temp (word "num-random" y)(table:get-or-default view (word "num-random" i) -98)
-          table:put view-temp (word "timestamp" y) (table:get-or-default view (word "timestamp" i) -98)
-          table:put view-temp (word "adress" y) (table:get-or-default view (word "adress" i) -98)
-            ]
-          set y y + 1
-
-      ]
-
-      ]
-      set z z + 1
-    ]
-    set i i + 1
-  ]
-
-
-  print(word "sono: " who "e la mia view-temp è " view-temp)
-  set i 0
-  table:clear view
-  repeat c [
-    table:put view (word "proprietà" (i + 1)) (table:get-or-default view-temp (word "proprietà" i) -57)
-    table:put view (word "num-random" (i + 1)) (table:get-or-default view-temp (word "num-random" i) -57)
-    table:put view (word "timestamp" (i + 1)) (table:get-or-default view-temp (word "timestamp" i) -57)
-    table:put view (word "adress" (i + 1)) (table:get-or-default view-temp (word "adress" i) -57)
-    set i i + 1
-      ]
-  print(word "Active view da temp-view: " view)
+  update-view
 
   ;;QUI SELEZIONO IL PEER A CUI INVIARE
   ;;IL PEER SUCH THAT (proprietà_suo - proprietà_mio)*(num_random_suo - num_random_mio)<0
-  ;;set i-peer 4 ;;Per ora a caso
-  set i 1
+  let i 1
   let proprietà-suo -2
   let num-random-suo -3
   repeat c [
-    set proprietà-suo (table:get-or-default view (word "proprietà" i) -98)
-    set num-random-suo (table:get-or-default view (word "num-random" i) -98)
+    set proprietà-suo (table:get-or-default view (word "proprietà" i) 0)
+    set num-random-suo (table:get-or-default view (word "num-random" i) 0)
     print(word "num random suo :" num-random-suo)
     print(word "proprietà suo :" proprietà-suo)
     print(word "num random  :" num-random)
     print(word "proprietà :" proprietà)
     if ((proprietà-suo != -98) and (num-random-suo != -98))[
-    if (((proprietà - proprietà-suo) * (num-random - num-random-suo)) < 0) [
-      set i-peer (table:get-or-default view (word "adress" i) -77)
-    ]]
+    ifelse (((proprietà - proprietà-suo) * (num-random - num-random-suo)) < 0) [
+      set i-peer (table:get-or-default view (word "adress" i) -1)
+    ][
+    set i-peer -1]]
     set i i + 1
   ]
   print(word "peer selected :" i-peer)
-  if ((i-peer != -77) and (i-peer != who))[
+  if ((i-peer != -1) and (i-peer != who))[
     let temp-num-random num-random
     set num-random ([ num-random ] of (turtle i-peer))
     ask (turtle i-peer) [
@@ -360,19 +267,8 @@ to act-active
 ]
 print(word "Swap num-random era " temp-num-random "ora è " num-random)
 
-    ask partner [ update-view-passive ]
   ]
 
-
-
-  ;;QUI INVIO AL PEER LE MIO INFO
-  ;;;;print i-peer
-;  ask (turtle i-peer) [set messaggio-proprietà [ proprietà ] of myself]
-;  ask (turtle i-peer) [set messaggio-num-random [ num-random ] of myself]
-;  ask (turtle i-peer) [set messaggio-timestamp ticks]
-;  ask (turtle i-peer) [set messaggio-adress [ adress ] of myself]
-;  ask (turtle i-peer) [set messaggiate? True]
-;  ask (turtle i-peer) [set messaggero myself]
   print("-------------------FINE ACT ACTIVE------------------------")
 end
 
@@ -383,10 +279,6 @@ to act-passive [destinatario]
 
   ;;QUI SCAMBIO BUFFER E NON SOLO UN MESSAGGIO, QUINDI L'INTERA TABLE + ME
   print (word "destinatario: " destinatario)
-;  ask destinatario [set messaggio-proprietà [ proprietà ] of myself]
-;  ask destinatario [set messaggio-num-random [ num-random ] of myself]
-;  ask destinatario [set messaggio-timestamp ticks]
-;  ask destinatario [set messaggio-adress myself]
   let buffer table:make
   set buffer view
   table:put buffer "proprietà0" proprietà
@@ -399,46 +291,48 @@ to act-passive [destinatario]
   ]
 
   print(word "Invio tabella passivamente a" destinatario ":" buffer)
+  update-view
   print(word "MEntre da passivo questa è la mia view " view)
   print("-------------------FINE ACT Passive------------------------")
 end
 
-to update-view-passive
-  print("-------------------UPDATE VIEW PASSIVE------------------------")
+to update-view
+  print("-------------------UPDATE VIEW------------------------")
   ;;QUI AGGIORNO LA VIEW COME LE FRESHEST C ENTRIES DEL MIO BUFFER-RIVEVUTO UNITO ALLA MIA VIEW
   let i 0
   let timestamps []
   let max-timestamps []
   print(word "sono " who)
-  print(word "Passive views prima di timestamp:" view)
-  print(word "Passive buffer prima di timestamp:" messaggio-buffer)
+  print(word "Views prima di timestamp:" view)
+  print(word "Buffer prima di timestamp:" messaggio-buffer)
   print(word "lunghezza messaggio buffer: " table:length  messaggio-buffer)
   print(word "lunghezza view: " table:length  view)
-  repeat c + 1 [
+  repeat (table:length messaggio-buffer / 4) [
     set timestamps (insert-item i timestamps (table:get-or-default messaggio-buffer (word "timestamp" i) -55) )
     print(word "item mess buff: " (table:get-or-default messaggio-buffer (word "timestamp" i) -55))
     if i > 0 [set timestamps (insert-item i timestamps (table:get-or-default view (word "timestamp" i) -55) )]
-    print(word "item mess buff: " (table:get-or-default view (word "timestamp" i) -55))
+    print(word "item mess view: " (table:get-or-default view (word "timestamp" i) -55))
     set i i + 1
     ]
-  print(word "Passive primestam prima di sort:" timestamps)
+  print(word "Timestams prima di sort:" timestamps)
   set timestamps (sort timestamps)
-  print(word "Passive primesta dopo di sort:" timestamps)
+  print(word "Timestamps dopo di sort:" timestamps)
+  print(word "ciclo per " (length timestamps - 1) )
 
-  set i (((table:length view) / 4) - 1)
-  repeat (((table:length view) / 4)) [
+  set i (length timestamps - 1 )
+  repeat (length timestamps) [
     print(word "gen" i)
-    if (item i timestamps != -55)[
+    ifelse (item i timestamps != -55)[
     print(word "iterazione" i "-1")
     set max-timestamps (insert-item 0 max-timestamps (item i timestamps) )
     ]
-    if (item i timestamps = -55)[
-      print(word "iterazione" i "-1")
+    [
       set max-timestamps (insert-item 0 max-timestamps -88 )
     ]
+
     set i i - 1
     ]
-  print(word "Passive max timestamp:" max-timestamps)
+  print(word "Max timestamp:" max-timestamps)
 
   print(word "sono: " who)
   print(table:length view)
@@ -448,37 +342,36 @@ to update-view-passive
   let z 0
   let y 0
   let view-temp table:make
-  repeat c   [
+  repeat (table:length messaggio-buffer / 4)  [
     set z 0
-    repeat c  [
-      if y < c  [
-        if ((table:get messaggio-buffer (word "timestamp" i)) = (item z max-timestamps))[
-          print(word "pass-1: " (table:get-or-default messaggio-buffer (word "proprietà" i) -98))
-          table:put view-temp (word "proprietà" y) (table:get-or-default messaggio-buffer (word "proprietà" i) -98)
-          table:put view-temp (word "num-random" y) (table:get-or-default messaggio-buffer (word "num-random" i) -98)
-          table:put view-temp (word "timestamp" y) (table:get-or-default messaggio-buffer (word "timestamp" i) -98)
-          table:put view-temp (word "adress" y) (table:get-or-default messaggio-buffer (word "adress" i) -98)
-          set y y + 1
+    repeat length timestamps  [
+      ;if y < length timestamps  [
+        print(word "z: " z)
+        print(word "y: " y)
+        print(word "i: " i)
+        if ((table:get-or-default messaggio-buffer (word "timestamp" i) -100) = (item z max-timestamps))[
+          print(word "pass-1-" z ": " (table:get-or-default messaggio-buffer (word "proprietà" i) -98))
+          table:put view-temp (word "proprietà" i) (table:get-or-default messaggio-buffer (word "proprietà" i) -98)
+          table:put view-temp (word "num-random" i) (table:get-or-default messaggio-buffer (word "num-random" i) -98)
+          table:put view-temp (word "timestamp" i) (table:get-or-default messaggio-buffer (word "timestamp" i) -98)
+          table:put view-temp (word "adress" i) (table:get-or-default messaggio-buffer (word "adress" i) -98)
         ]
-        if ((table:get view (word "timestamp" i)) = (item z max-timestamps))[
+        if ((table:get-or-default view (word "timestamp" i) -100) = (item z max-timestamps))[
            if i > 0 [
-          print(word "pass-2: " (table:get-or-default view (word "proprietà" i) -98))
+          print(word "pass-2" z ": " (table:get-or-default view (word "proprietà" i) -98))
 
-          table:put view-temp (word "proprietà" y) (table:get-or-default view (word "proprietà" i) -98)
-          table:put view-temp (word "num-random" y)(table:get-or-default view (word "num-random" i) -98)
-          table:put view-temp (word "timestamp" y) (table:get-or-default view (word "timestamp" i) -98)
-          table:put view-temp (word "adress" y) (table:get-or-default view (word "adress" i) -98)
-            ]
-          set y y + 1
-
+          table:put view-temp (word "proprietà" i) (table:get-or-default view (word "proprietà" i) -98)
+          table:put view-temp (word "num-random" i)(table:get-or-default view (word "num-random" i) -98)
+          table:put view-temp (word "timestamp" i) (table:get-or-default view (word "timestamp" i) -98)
+          table:put view-temp (word "adress" i) (table:get-or-default view (word "adress" i) -98)
+      ]
       ]
 
-      ]
       set z z + 1
     ]
     set i i + 1
   ]
-print(word "Passive temp view " view-temp)
+print(word "Temp view " view-temp)
   set i 0
   table:clear view
   repeat c [
@@ -488,8 +381,8 @@ print(word "Passive temp view " view-temp)
     table:put view (word "adress" (i + 1)) (table:get-or-default view-temp (word "adress" i) -57)
     set i i + 1
       ]
-  print(word "Passive temp view to view " view)
-  print("-------------------FINE UPDATE VIEW PASSIVE------------------------")
+  print(word "Temp view to view " view)
+  print("-------------------FINE UPDATE VIEW------------------------")
 end
 
 
