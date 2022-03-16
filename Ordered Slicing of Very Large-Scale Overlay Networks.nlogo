@@ -12,16 +12,14 @@
 extensions [table]
 
 globals [
-
   num-agents ;;Numero degli agenti
-  total-num-swap
+  total-num-swap ;;Numero totale di swap di numeri random tra agenti
   total-num-gossip ;; Numero totale di gossip scambiati
   total-num-gossip-attivi  ;; Numero totale di gossip attivi scambiato
   total-num-gossip-passivi ;; Numero totale di gossip passivi
-  slice ;; partizione del 5% con valore della proprietà più alta
-  slice-per-agent
-  stato
-  fine?
+  slice ;; partizione secondo il valore della proprietà
+  slice-per-agent ;; partizione secondo il numero random degli agenti
+  fine? ;; Booleano per segnalare la fine dell'algoritmo
 ]
 
 turtles-own [
@@ -34,14 +32,15 @@ turtles-own [
   partenered-passive? ;; Flag per capire che della coppia è il partner passivo
   partnered?        ;; Sonoa accoppiato?
   partner           ;; Descrittore WHO del mio partner (impostato a "nobody" se non sono accoppiato)
-  partner-history-active   ;; Una lista contenente l'ID degli agenti con cui ho fatto gossip
-  partner-history-passive
-
+  partner-history-active   ;; Una lista contenente l'ID degli agenti con cui ho fatto gossip attivo
+  partner-history-passive ;; Una lista contenente l'ID degli agenti con cui ho fatto gossip passivo
   view              ;; Un numero "c" di agenti che conosco
   messaggiate?      ;; Sono stato messaggiato?
   messaggero        ;; Chi mi ha messaggiato?
   i-peer            ;; il peer selezionato per gossip passivo
   partizione?       ;; Secondo la mia previsione appartengo alla slice dei più potenti o meno
+  in-slice?
+  in-slice-per-agent?
 
   ;; Variabile usate per scambiare il messaggio
   messaggio-num-random
@@ -86,7 +85,7 @@ to setup-common-variables
   ask turtles [
     set gossip-attivi 0
     set gossip-passivi 0
-    set proprietà random 100
+    set proprietà random 500
     set num-random random-float 1
     set timestamp 0
     set adress who
@@ -104,6 +103,8 @@ to setup-common-variables
     set messaggero nobody
 
     set partizione? false
+    set in-slice? false
+    set in-slice-per-agent? false
 
     setxy random-xcor random-ycor
 
@@ -132,22 +133,21 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
 to go
-
   clear-last-round
-  ask turtles [ partner-up ]                          ;;Seleziona un partner random dopo un tempo random
+  ask turtles [ partner-up ] ;; Seleziona un partner random dopo un tempo random dato dal movimento random
   let partnered-turtles turtles with [ partnered? and not partenered-passive? ]
-  ask partnered-turtles [ gossip-actively ]       ;;Se ho un partner faccio gossip attivo
-
+  ask partnered-turtles [ gossip-actively ] ;; Se ho un partner faccio gossip attivo
 
   let messaged-turtles turtles with [ messaggiate? ]
-  ask messaged-turtles [ gossip-passively (messaggero) ]           ;;Se ho ricevuto un messaggio rispondo con gossip passivo
+  ask messaged-turtles [ gossip-passively (messaggero) ] ;; Se ho ricevuto un messaggio rispondo con gossip passivo
 
   do-scoring
   do-calc-slice
   do-calc-slice-per-agent
   find-convergence
-  if (fine? = True) [stop]
-  ; ask turtles[;;print(word who ":" proprietà)]
+  if (fine? = True) [stop] ;;In caso di convergenza fermo la simulazione
+
+  ;ask turtles[print(word who ":" proprietà)]
 
   tick
 end
@@ -199,7 +199,7 @@ to gossip-actively ;;turtle procedure
 end
 
 to gossip-passively [destinatario] ;;turtle procedure
-                                   ;print(word "sono " myself " gossip passivo chiamatao da: " destinatario)
+  if debug [print(word "sono " myself " gossip passivo chiamatao da: " destinatario)]
   act-passive (destinatario)
   update-history-passive (destinatario)
   increment-gossip-passivi
@@ -222,8 +222,11 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to act-active
-  ;print("-------------------ACT ACTIVE------------------------")
-  ;print(word "SONO LA TURTLE num :" who)
+  if debug [
+  print("-------------------ACT ACTIVE------------------------")
+  print(word "SONO LA TURTLE num :" who)
+  print(word "view =" view)
+  ]
 
   ;;Costruisco un buffer in cui metto la mia view più le mie proprietà
   let buffer table:make
@@ -232,18 +235,18 @@ to act-active
   table:put buffer  "num-random0" num-random
   table:put buffer  "timestamp0" ticks
   table:put buffer "adress0" adress
-
-  ;print(word "invio buffer a partner per farmi rispondere passivamente da " who " :" buffer)
+  if debug [
+  print(word "SONO " who)
+    print(word "invio buffer a partner per farmi rispondere passivamente: " buffer)]
   ask partner [set messaggio-buffer [buffer] of myself]
-
   ;;Faccio rispondere al partner passivamente
-  ;print(word "Chiamata passiva da " who "verso" partner)
+  if debug [
+    print(word "Chiamata passiva da " who "verso" partner)]
   ask partner [ gossip-passively (myself) ]
-  ;print(word "buffer passivo ricevuto  da " who " :" messaggio-buffer)
-
+  if debug [
+    print(word "buffer passivo ricevuto  da " who " :" messaggio-buffer)]
   ;;QUI ORDINO LA VIEW CON FRESHEST C ENTRIES
   update-view
-
   ;;QUI SELEZIONO IL PEER A CUI INVIARE
   ;;IL PEER SUCH THAT (proprietà_suo - proprietà_mio)*(num_random_suo - num_random_mio)<0
   let i 1
@@ -263,29 +266,34 @@ to act-active
         set i-peer -1]]
     set i i + 1
   ]
-  ;print(word "peer selected :" i-peer)
   if ((i-peer != -1) and (i-peer != who))[
     let temp-num-random num-random
     set num-random ([ num-random ] of (turtle i-peer))
     ask (turtle i-peer) [
-      ;print(word "sono il peer: Swap num-random era " num-random)
+      if debug [
+      print(word "sono il peer per swap con num-random" num-random " e proprietà" proprietà)
+      ]
       set num-random [ temp-num-random ] of myself
-      ;print(word "Sono il peer: ora è " num-random)
     ]
-    ;print(word "Swap num-random era " temp-num-random "ora è " num-random)
+    if debug [
+    print(word "Swap num-random era " temp-num-random "ora è " num-random "perchè la mia proprietà è " proprietà)
+    ]
     set total-num-swap total-num-swap + 1
   ]
-
-  ;print("-------------------FINE ACT ACTIVE------------------------")
+if debug [
+  print("-------------------FINE ACT ACTIVE------------------------")
+  ]
 end
 
 to act-passive [destinatario]
-  ;print("-------------------ACT PASSIVE------------------------")
-  ;print(word "SONO LA TURTLE num :" who)
-  ;print(word "Mi è arrivata questa tabella passivamente e sono chi deve agire pass " who ": " messaggio-buffer)
+  if debug [
+  print("-------------------ACT PASSIVE------------------------")
+  print(word "SONO LA TURTLE num :" who)
+  print(word "Mi è arrivata questa tabella passivamente e sono chi deve agire pass " who ": " messaggio-buffer)
 
   ;;QUI SCAMBIO BUFFER E NON SOLO UN MESSAGGIO, QUINDI L'INTERA TABLE + ME
-  ;print (word "destinatario: " destinatario)
+  print (word "destinatario: " destinatario)
+  ]
   let buffer table:make
   set buffer view
   table:put buffer "proprietà0" proprietà
@@ -294,43 +302,53 @@ to act-passive [destinatario]
   table:put buffer "adress0" adress
   ask destinatario [
     set messaggio-buffer ([buffer] of myself)
-    ;print(word "Mi è arrivata questa tabella passivamente e sono il destinarario " who ": " messaggio-buffer)
+    if debug [
+    print(word "Mi è arrivata questa tabella passivamente e sono il destinarario " who ": " messaggio-buffer)
+    ]
   ]
-
-  ;print(word "Invio tabella passivamente a" destinatario ":" buffer)
+  if debug [
+    print(word "Invio tabella passivamente a" destinatario ":" buffer) ]
   update-view
-  ;print(word "MEntre da passivo questa è la mia view " view)
-  ;print("-------------------FINE ACT Passive------------------------")
+  if debug [
+  print(word "MEntre da passivo questa è la mia view " view)
+  print("-------------------FINE ACT Passive------------------------")
+  ]
 end
 
 to update-view
-  ;print("-------------------UPDATE VIEW------------------------")
+
   ;;QUI AGGIORNO LA VIEW COME LE FRESHEST C ENTRIES DEL MIO BUFFER-RIVEVUTO UNITO ALLA MIA VIEW
   let i 0
   let timestamps []
   let max-timestamps []
-  ;print(word "sono " who)
-  ;print(word "Views prima di timestamp:" view)
-  ;print(word "Buffer prima di timestamp:" messaggio-buffer)
-  ;print(word "lunghezza messaggio buffer: " table:length  messaggio-buffer)
-  ;print(word "lunghezza view: " table:length  view)
+  if debug [
+  print("-------------------UPDATE VIEW------------------------")
+  print(word "Sono " who)
+  print(word "Views:" view)
+  print(word "Buffer:" messaggio-buffer)
+  print(word "lunghezza messaggio buffer: " (table:length  messaggio-buffer / 4))
+  print(word "lunghezza view: " (table:length  view / 4))
+  ]
   repeat (table:length messaggio-buffer / 4) [
     set timestamps (insert-item i timestamps (table:get-or-default messaggio-buffer (word "timestamp" i) -55) )
-    ;print(word "item mess buff: " (table:get-or-default messaggio-buffer (word "timestamp" i) -55))
     if i > 0 [set timestamps (insert-item i timestamps (table:get-or-default view (word "timestamp" i) -55) )]
-    ;print(word "item mess view: " (table:get-or-default view (word "timestamp" i) -55))
     set i i + 1
   ]
-  ;print(word "Timestams prima di sort:" timestamps)
+  if debug [
+  print(word "Timestams prima di sort:" timestamps)
+  ]
   set timestamps (sort timestamps)
-  ;print(word "Timestamps dopo di sort:" timestamps)
-  ;print(word "ciclo per " (length timestamps - 1) )
+  ;Elimino timestamp inutili
+  let list2 [-1 -88 -55]
+  set timestamps filter [ x -> not member? x list2 ] timestamps
+  if debug [
+  print(word "Timestamps dopo di sort e pulizia:" timestamps)
+  print(word "ciclo per " (length timestamps - 1) )
+  ]
 
   set i (length timestamps - 1 )
   repeat (length timestamps) [
-    ;print(word "gen" i)
     ifelse (item i timestamps != -55)[
-      ;print(word "iterazione" i "-1")
       set max-timestamps (insert-item 0 max-timestamps (item i timestamps) )
     ]
     [
@@ -340,48 +358,40 @@ to update-view
     set i i - 1
   ]
 
-  ; Elimino timestamp inutili
-  let list2 [-1 -88]
-  set max-timestamps filter [ x -> not member? x list2 ] max-timestamps
-  ;print(word "Max timestamp:" max-timestamps)
-
-  ;print(word "sono: " who)
-  ;print(table:length view)
-  ;print(table:length messaggio-buffer)
+  if debug [
+  print(word "Max timestamp:" max-timestamps)
+  print(word "lunghezza view: " (table:length view / 4))
+  print(word "lunghezza messaggio-buffer: " (table:length messaggio-buffer / 4))
+  ]
 
   set i 0
   let z 0
+  let k 0
   let view-temp table:make
   repeat (table:length messaggio-buffer / 4)  [
     set z 0
     repeat length max-timestamps  [
-      ;if y < length timestamps  [
-      ;print(word "z: " z)
-      ;print(word "i: " i)
-      if ((table:get-or-default messaggio-buffer (word "timestamp" i) -100) = (item z max-timestamps))[
-        ;print(word "pass-1-" z ": " (table:get-or-default messaggio-buffer (word "proprietà" i) -98))
-        table:put view-temp (word "proprietà" i) (table:get-or-default messaggio-buffer (word "proprietà" i) -98)
-        table:put view-temp (word "num-random" i) (table:get-or-default messaggio-buffer (word "num-random" i) -98)
-        table:put view-temp (word "timestamp" i) (table:get-or-default messaggio-buffer (word "timestamp" i) -98)
-        table:put view-temp (word "adress" i) (table:get-or-default messaggio-buffer (word "adress" i) -98)
-      ]
+      ifelse ((table:get-or-default messaggio-buffer (word "timestamp" i) -100) = (item z max-timestamps))[
+        table:put view-temp (word "proprietà" k) (table:get-or-default messaggio-buffer (word "proprietà" i) -98)
+        table:put view-temp (word "num-random" k) (table:get-or-default messaggio-buffer (word "num-random" i) -98)
+        table:put view-temp (word "timestamp" k) (table:get-or-default messaggio-buffer (word "timestamp" i) -98)
+        table:put view-temp (word "adress" k) (table:get-or-default messaggio-buffer (word "adress" i) -98)
+      ] [ set k k - 1]
       if ((table:get-or-default view (word "timestamp" i) -100) = (item z max-timestamps))[
-        ;if i > 0 [
-        ;print(word "pass-2" z ": " (table:get-or-default view (word "proprietà" i) -98))
-
-        table:put view-temp (word "proprietà" (i + 1)) (table:get-or-default view (word "proprietà" i) -98)
-        table:put view-temp (word "num-random" (i + 1))(table:get-or-default view (word "num-random" i) -98)
-        table:put view-temp (word "timestamp" (i + 1)) (table:get-or-default view (word "timestamp" i) -98)
-        table:put view-temp (word "adress" (i + 1)) (table:get-or-default view (word "adress" i) -98)
-        ; ]
+        table:put view-temp (word "proprietà" (k + 1)) (table:get-or-default view (word "proprietà" i) -98)
+        table:put view-temp (word "num-random" (k + 1))(table:get-or-default view (word "num-random" i) -98)
+        table:put view-temp (word "timestamp" (k + 1)) (table:get-or-default view (word "timestamp" i) -98)
+        table:put view-temp (word "adress" (k + 1)) (table:get-or-default view (word "adress" i) -98)
+        set k k + 1
       ]
 
       set z z + 1
+      set k k + 1
     ]
     set i i + 1
   ]
-  ;print(word "Temp view " view-temp)
-  if ( table:length messaggio-buffer > 0 )[
+  if debug [print(word "Temp view " view-temp)]
+  if ( table:length view-temp > 0 )[
     set i 0
     table:clear view
     repeat c [
@@ -391,8 +401,10 @@ to update-view
       table:put view (word "adress" (i + 1)) (table:get-or-default view-temp (word "adress" i) -1)
       set i i + 1
   ]]
-  ;;print(word "Temp view to view " view)
-  ;;print("-------------------FINE UPDATE VIEW------------------------")
+  if debug [
+  print(word "Temp view to view " view)
+  print("-------------------FINE UPDATE VIEW------------------------")
+  ]
 end
 
 
@@ -433,12 +445,14 @@ end
 ;; Calcolo la partizione
 to do-calc-slice
   set slice (calc-slice)
-  ask slice [ask self [set shape "circle"]]
+  ask slice [ask self [set shape "circle"]
+  set in-slice? true]
 end
 
 to do-calc-slice-per-agent
   set slice-per-agent (calc-slice-per-agent)
-  ask slice-per-agent [ask self [set color red]]
+  ask slice-per-agent [ask self [set color red]
+  set in-slice-per-agent? True]
   let not-slice-per-agent turtles with [not member? self slice-per-agent]
   ask not-slice-per-agent [ask self [set color green]]
 end
@@ -470,13 +484,13 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 @#$#@#$#@
 GRAPHICS-WINDOW
-397
-107
-625
-336
+404
+86
+1193
+523
 -1
 -1
-20.0
+25.0
 1
 10
 1
@@ -486,10 +500,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--5
-5
--5
-5
+-15
+15
+-8
+8
 1
 1
 1
@@ -539,7 +553,7 @@ n-agents
 n-agents
 2
 1000
-104.0
+500.0
 2
 1
 NIL
@@ -602,7 +616,7 @@ c
 c
 0
 30
-5.0
+20.0
 1
 1
 NIL
@@ -624,7 +638,7 @@ particion-percentage
 particion-percentage
 0
 100
-10.0
+50.0
 1
 1
 NIL
@@ -658,6 +672,17 @@ total-num-swap
 17
 1
 14
+
+SWITCH
+828
+25
+989
+58
+debug
+debug
+1
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
