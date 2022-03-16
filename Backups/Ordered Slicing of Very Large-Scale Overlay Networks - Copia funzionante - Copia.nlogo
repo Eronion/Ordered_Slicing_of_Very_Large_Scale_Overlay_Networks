@@ -14,7 +14,7 @@ extensions [table]
 globals [
 
   num-agents ;;Numero degli agenti
-  total-num-swap
+
   total-num-gossip ;; Numero totale di gossip scambiati
   total-num-gossip-attivi  ;; Numero totale di gossip attivi scambiato
   total-num-gossip-passivi ;; Numero totale di gossip passivi
@@ -110,12 +110,12 @@ to setup-common-variables
     let i 1
     let dim-view c
     repeat dim-view [
-      table:put view (word "proprietà" i) -1
-      table:put view (word "num-random" i) -1
-      table:put view (word "timestamp" i) -1
-      table:put view (word "adress" i) -1
-      set i i + 1
-    ]
+    table:put view (word "proprietà" i) -1
+    table:put view (word "num-random" i) -1
+    table:put view (word "timestamp" i) -1
+    table:put view (word "adress" i) -1
+    set i i + 1
+  ]
 
 
 
@@ -199,7 +199,7 @@ to gossip-actively ;;turtle procedure
 end
 
 to gossip-passively [destinatario] ;;turtle procedure
-                                   ;print(word "sono " myself " gossip passivo chiamatao da: " destinatario)
+  ;print(word "sono " myself " gossip passivo chiamatao da: " destinatario)
   act-passive (destinatario)
   update-history-passive (destinatario)
   increment-gossip-passivi
@@ -257,10 +257,10 @@ to act-active
     ;print(word "num random  :" num-random)
     ;print(word "proprietà :" proprietà)
     if ((proprietà-suo != -1) and (num-random-suo != -1))[
-      ifelse (((proprietà - proprietà-suo) * (num-random - num-random-suo)) < 0) [
-        set i-peer (table:get-or-default view (word "adress" i) -1)
-      ][
-        set i-peer -1]]
+    ifelse (((proprietà - proprietà-suo) * (num-random - num-random-suo)) < 0) [
+      set i-peer (table:get-or-default view (word "adress" i) -1)
+    ][
+    set i-peer -1]]
     set i i + 1
   ]
   ;print(word "peer selected :" i-peer)
@@ -271,9 +271,9 @@ to act-active
       ;print(word "sono il peer: Swap num-random era " num-random)
       set num-random [ temp-num-random ] of myself
       ;print(word "Sono il peer: ora è " num-random)
-    ]
-    ;print(word "Swap num-random era " temp-num-random "ora è " num-random)
-    set total-num-swap total-num-swap + 1
+]
+;print(word "Swap num-random era " temp-num-random "ora è " num-random)
+
   ]
 
   ;print("-------------------FINE ACT ACTIVE------------------------")
@@ -320,7 +320,7 @@ to update-view
     if i > 0 [set timestamps (insert-item i timestamps (table:get-or-default view (word "timestamp" i) -55) )]
     ;print(word "item mess view: " (table:get-or-default view (word "timestamp" i) -55))
     set i i + 1
-  ]
+    ]
   ;print(word "Timestams prima di sort:" timestamps)
   set timestamps (sort timestamps)
   ;print(word "Timestamps dopo di sort:" timestamps)
@@ -330,19 +330,15 @@ to update-view
   repeat (length timestamps) [
     ;print(word "gen" i)
     ifelse (item i timestamps != -55)[
-      ;print(word "iterazione" i "-1")
-      set max-timestamps (insert-item 0 max-timestamps (item i timestamps) )
+    ;print(word "iterazione" i "-1")
+    set max-timestamps (insert-item 0 max-timestamps (item i timestamps) )
     ]
     [
       set max-timestamps (insert-item 0 max-timestamps -88 )
     ]
 
     set i i - 1
-  ]
-
-  ; Elimino timestamp inutili
-  let list2 [-1 -88]
-  set max-timestamps filter [ x -> not member? x list2 ] max-timestamps
+    ]
   ;print(word "Max timestamp:" max-timestamps)
 
   ;print(word "sono: " who)
@@ -354,54 +350,53 @@ to update-view
   let view-temp table:make
   repeat (table:length messaggio-buffer / 4)  [
     set z 0
-    repeat length max-timestamps  [
+    repeat length timestamps  [
       ;if y < length timestamps  [
-      ;print(word "z: " z)
-      ;print(word "i: " i)
-      if ((table:get-or-default messaggio-buffer (word "timestamp" i) -100) = (item z max-timestamps))[
-        ;print(word "pass-1-" z ": " (table:get-or-default messaggio-buffer (word "proprietà" i) -98))
-        table:put view-temp (word "proprietà" i) (table:get-or-default messaggio-buffer (word "proprietà" i) -98)
-        table:put view-temp (word "num-random" i) (table:get-or-default messaggio-buffer (word "num-random" i) -98)
-        table:put view-temp (word "timestamp" i) (table:get-or-default messaggio-buffer (word "timestamp" i) -98)
-        table:put view-temp (word "adress" i) (table:get-or-default messaggio-buffer (word "adress" i) -98)
-      ]
-      if ((table:get-or-default view (word "timestamp" i) -100) = (item z max-timestamps))[
-        ;if i > 0 [
-        ;print(word "pass-2" z ": " (table:get-or-default view (word "proprietà" i) -98))
+        ;print(word "z: " z)
+        ;print(word "i: " i)
+        if ((table:get-or-default messaggio-buffer (word "timestamp" i) -100) = (item z max-timestamps))[
+          ;print(word "pass-1-" z ": " (table:get-or-default messaggio-buffer (word "proprietà" i) -98))
+          table:put view-temp (word "proprietà" i) (table:get-or-default messaggio-buffer (word "proprietà" i) -98)
+          table:put view-temp (word "num-random" i) (table:get-or-default messaggio-buffer (word "num-random" i) -98)
+          table:put view-temp (word "timestamp" i) (table:get-or-default messaggio-buffer (word "timestamp" i) -98)
+          table:put view-temp (word "adress" i) (table:get-or-default messaggio-buffer (word "adress" i) -98)
+        ]
+        if ((table:get-or-default view (word "timestamp" i) -100) = (item z max-timestamps))[
+           ;if i > 0 [
+          ;print(word "pass-2" z ": " (table:get-or-default view (word "proprietà" i) -98))
 
-        table:put view-temp (word "proprietà" (i + 1)) (table:get-or-default view (word "proprietà" i) -98)
-        table:put view-temp (word "num-random" (i + 1))(table:get-or-default view (word "num-random" i) -98)
-        table:put view-temp (word "timestamp" (i + 1)) (table:get-or-default view (word "timestamp" i) -98)
-        table:put view-temp (word "adress" (i + 1)) (table:get-or-default view (word "adress" i) -98)
-        ; ]
+          table:put view-temp (word "proprietà" i) (table:get-or-default view (word "proprietà" i) -98)
+          table:put view-temp (word "num-random" i)(table:get-or-default view (word "num-random" i) -98)
+          table:put view-temp (word "timestamp" i) (table:get-or-default view (word "timestamp" i) -98)
+          table:put view-temp (word "adress" i) (table:get-or-default view (word "adress" i) -98)
+     ; ]
       ]
 
       set z z + 1
     ]
     set i i + 1
   ]
-  ;print(word "Temp view " view-temp)
-  if ( table:length messaggio-buffer > 0 )[
-    set i 0
-    table:clear view
-    repeat c [
-      table:put view (word "proprietà" (i + 1)) (table:get-or-default view-temp (word "proprietà" i) -1)
-      table:put view (word "num-random" (i + 1)) (table:get-or-default view-temp (word "num-random" i) -1)
-      table:put view (word "timestamp" (i + 1)) (table:get-or-default view-temp (word "timestamp" i) -1)
-      table:put view (word "adress" (i + 1)) (table:get-or-default view-temp (word "adress" i) -1)
-      set i i + 1
-  ]]
+;print(word "Temp view " view-temp)
+  set i 0
+  table:clear view
+  repeat c [
+    table:put view (word "proprietà" (i + 1)) (table:get-or-default view-temp (word "proprietà" i) -1)
+    table:put view (word "num-random" (i + 1)) (table:get-or-default view-temp (word "num-random" i) -1)
+    table:put view (word "timestamp" (i + 1)) (table:get-or-default view-temp (word "timestamp" i) -1)
+    table:put view (word "adress" (i + 1)) (table:get-or-default view-temp (word "adress" i) -1)
+    set i i + 1
+      ]
   ;;print(word "Temp view to view " view)
   ;;print("-------------------FINE UPDATE VIEW------------------------")
 end
 
 
 to increment-gossip-attivi
-  set gossip-attivi gossip-attivi + 1
+    set gossip-attivi gossip-attivi + 1
 end
 
 to increment-gossip-passivi
-  set gossip-passivi gossip-passivi + 1
+    set gossip-passivi gossip-passivi + 1
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -417,17 +412,17 @@ end
 
 ;; Calcola il numero totale di gossip effettuati
 to-report calc-gossip []
-  report (sum [ gossip-attivi + gossip-passivi ] of turtles) / 2
+    report (sum [ gossip-attivi + gossip-passivi ] of turtles) / 2
 end
 
 ;; Calcola il numero totale di gossip effettuati
 to-report calc-gossip-attivi []
-  report (sum [ gossip-attivi] of turtles) / 2
+    report (sum [ gossip-attivi] of turtles) / 2
 end
 
 ;; Calcola il numero totale di gossip effettuati
 to-report calc-gossip-passivi []
-  report (sum [ gossip-passivi ] of turtles) / 2
+    report (sum [ gossip-passivi ] of turtles) / 2
 end
 
 ;; Calcolo la partizione
@@ -445,18 +440,18 @@ end
 
 ;; reporto la percentuale di agenti con la priprietà max
 to-report calc-slice []
-  report max-n-of ((num-agents / 100) * particion-percentage) turtles [proprietà]
+    report max-n-of ((num-agents / 100) * particion-percentage) turtles [proprietà]
 end
 
 to-report calc-slice-per-agent []
-  report max-n-of ((num-agents / 100) *  particion-percentage) turtles [num-random]
+    report max-n-of ((num-agents / 100) *  particion-percentage) turtles [num-random]
 end
 
 ;; Calcolo la partizione
 to find-convergence
   ifelse (slice = slice-per-agent) [ask patches [set pcolor white]
     set fine? True
-    output-print(word "Convergenza raggiunta al round " ticks )
+  output-print(word "Convergenza raggiunta al round " ticks )
   ] [
     ;set stato (ask slice [if (color = 15)[set stato stato + 1]])
   ]
@@ -470,10 +465,10 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 @#$#@#$#@
 GRAPHICS-WINDOW
-397
-107
-625
-336
+478
+87
+1306
+516
 -1
 -1
 20.0
@@ -486,10 +481,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--5
-5
--5
-5
+-20
+20
+-10
+10
 1
 1
 1
@@ -497,10 +492,10 @@ ticks
 10.0
 
 BUTTON
-70
-26
-148
-69
+8
+19
+86
+62
 NIL
 setup
 NIL
@@ -514,10 +509,10 @@ NIL
 1
 
 BUTTON
-147
-26
-236
-69
+85
+19
+174
+62
 NIL
 go
 T
@@ -531,25 +526,25 @@ NIL
 0
 
 SLIDER
-66
-81
-322
-114
+10
+79
+266
+112
 n-agents
 n-agents
 2
 1000
-104.0
+136.0
 2
 1
 NIL
 HORIZONTAL
 
 BUTTON
-236
-26
-322
-70
+174
+19
+260
+63
 go once
 go
 NIL
@@ -563,10 +558,10 @@ NIL
 0
 
 PLOT
-32
-219
-354
-375
+11
+228
+333
+406
 Grafico
 tempo
 numero gossip
@@ -583,43 +578,43 @@ PENS
 "Passivi" 1.0 0 -2674135 true "" "plot total-num-gossip-passivi"
 
 MONITOR
-415
-25
-587
-82
+290
+17
+446
+66
 Numero totali di gossip
 total-num-gossip
 1
 1
-14
+12
 
 SLIDER
-67
-123
-323
-156
+11
+121
+267
+154
 c
 c
 0
 30
-5.0
+20.0
 1
 1
 NIL
 HORIZONTAL
 
 OUTPUT
-534
-532
-1068
-586
+479
+17
+1013
+71
 20
 
 SLIDER
-67
-170
-324
-203
+11
+168
+268
+201
 particion-percentage
 particion-percentage
 0
@@ -630,34 +625,16 @@ particion-percentage
 NIL
 HORIZONTAL
 
-PLOT
-33
-388
-355
-545
-Swap totali
-tempo
-swap
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -16777216 true "" "plot total-num-swap"
-
 MONITOR
-614
-24
-799
-81
-Numerp swap totali
-total-num-swap
+291
+83
+446
+128
+NIL
+stato
 17
 1
-14
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
