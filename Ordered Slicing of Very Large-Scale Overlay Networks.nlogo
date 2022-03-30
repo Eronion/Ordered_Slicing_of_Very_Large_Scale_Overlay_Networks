@@ -144,9 +144,10 @@ to go
   do-scoring
   do-calc-slice
   do-calc-slice-per-agent
+  if (stop-at-convergence = True)[
   find-convergence
   if (fine? = True) [stop] ;;In caso di convergenza fermo la simulazione
-
+  ]
   ;ask turtles[print(word who ":" proprietà)]
 
   tick
@@ -486,8 +487,8 @@ end
 GRAPHICS-WINDOW
 404
 86
-1193
-523
+1187
+520
 -1
 -1
 25.0
@@ -552,8 +553,8 @@ SLIDER
 n-agents
 n-agents
 2
-1000
-500.0
+500
+30.0
 2
 1
 NIL
@@ -616,7 +617,7 @@ c
 c
 0
 30
-20.0
+10.0
 1
 1
 NIL
@@ -638,7 +639,7 @@ particion-percentage
 particion-percentage
 0
 100
-50.0
+10.0
 1
 1
 NIL
@@ -681,6 +682,17 @@ SWITCH
 debug
 debug
 1
+1
+-1000
+
+SWITCH
+1017
+25
+1189
+58
+stop-at-convergence
+stop-at-convergence
+0
 1
 -1000
 
